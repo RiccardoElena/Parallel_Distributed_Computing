@@ -17,6 +17,7 @@ void copymats(int lda, int ldb, int ldc,
 void exec_matmatthread(int lda, int ldb, int ldc,
                        double *A, double *B, double *C,
                        int N1, int N2, int N3,
+                       int dbA, int dbB, int dbC,
                        int NTROW, int NTCOL);
 
 void exec_matmatblock(int lda, int ldb, int ldc,
@@ -89,12 +90,14 @@ void exec_matmatblock(int lda, int ldb, int ldc,
 void exec_matmatthread(int lda, int ldb, int ldc,
                        double *A, double *B, double *C,
                        int N1, int N2, int N3,
+                       int dbA, int dbB, int dbC,
                        int NTROW, int NTCOL)
 {
   double *A_copy, *B_copy, *C_copy;
   double get_cur_time(), t1, t2;
   void matmatthread(int, int, int,
                     double *, double *, double *,
+                    int, int, int,
                     int, int, int,
                     int, int);
 
@@ -107,6 +110,7 @@ void exec_matmatthread(int lda, int ldb, int ldc,
   t1 = get_cur_time();
   matmatthread(lda, ldb, ldc, A_copy, B_copy, C_copy,
                N1, N2, N3,
+               dbA, dbB, dbC,
                NTROW, NTCOL);
   t2 = get_cur_time();
 
@@ -203,14 +207,13 @@ int main()
     printf("matmatblock\n");
     exec_matmatblock(lda, ldb, ldc, A, B, C, N1, N2, N3, 256, 256, 256);
     printf("matmatthread 1 thread\n");
-    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 1, 1);
+    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 256, 256, 256, 1, 1);
     printf("matmatthread 2 threads\n");
-    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 1, 2);
+    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 256, 256, 256, 1, 2);
     printf("matmatthread 4 threads\n");
-    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 2, 2);
+    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 256, 256, 256, 2, 2);
     printf("matmatthread 8 threads\n");
-    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 2, 4);
-
+    exec_matmatthread(lda, ldb, ldc, A, B, C, N1, N2, N3, 256, 256, 256, 2, 4);
     f = fopen(BASEFILE, "a");
     if (f == NULL)
     {

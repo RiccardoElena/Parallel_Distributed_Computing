@@ -39,6 +39,7 @@ void matmatblock(int lda, int ldb, int ldc,
 void matmatthread(int lda, int ldb, int ldc,
                   double *A, double *B, double *C,
                   int N1, int N2, int N3,
+                  int dbA, int dbB, int dbC,
                   int NTROW, int NTCOL);
 
 /* ========================== Function definition =========================== */
@@ -177,6 +178,7 @@ void matmatblock(int lda, int ldb, int ldc,
 void matmatthread(int lda, int ldb, int ldc,
                   double *A, double *B, double *C,
                   int N1, int N2, int N3,
+                  int dbA, int dbB, int dbC,
                   int NTROW, int NTCOL)
 {
 #pragma omp parallel num_threads(NTROW *NTCOL)
@@ -199,16 +201,12 @@ void matmatthread(int lda, int ldb, int ldc,
 
     if (local_N1 > 0 && local_N3 > 0)
     {
-      /* Call matmatblock on the thread-local submatrix:
-       A submatrix starts at row_start, all k
-       B submatrix starts at column col_start, all k
-       C submatrix starts at (row_start, col_start) */
       matmatblock(lda, ldb, ldc,
                   &A[row_start * lda],
                   &B[col_start],
                   &C[row_start * ldc + col_start],
                   local_N1, N2, local_N3,
-                  256, 256, 256);
+                  dbA, dbB, dbC);
     }
   }
 }
