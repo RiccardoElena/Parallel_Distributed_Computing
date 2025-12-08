@@ -8,6 +8,10 @@
 
 /* ========================== Function declaration ========================== */
 
+static int gcd(int a, int b);
+
+static int lcm(int a, int b);
+
 void matmatikj(int lda, int ldb, int ldc,
                double *A, double *B, double *C,
                int N1, int N2, int N3);
@@ -23,7 +27,32 @@ void matmatthread(int lda, int ldb, int ldc,
                   int dbA, int dbB, int dbC,
                   int NTROW, int NTCOL);
 
+void matmatdist(MPI_Comm Gridcom,
+                int lda, int ldb, int ldc,
+                double *A, double *B, double *C,
+                int N1, int N2, int N3,
+                int dbA, int dbB, int dbC,
+                int NTROW, int NTCOL);
+
 /* ========================== Function definition =========================== */
+
+static int gcd(int a, int b)
+{
+  while (b != 0)
+  {
+    int temp = b;
+    b = a % b;
+    a = temp;
+  }
+  return a;
+}
+
+static int lcm(int a, int b)
+{
+  if (a == 0 || b == 0)
+    return 0;
+  return (a / gcd(a, b)) * b;
+}
 
 void matmatikj(int lda, int ldb, int ldc,
                double *A, double *B, double *C,
@@ -100,4 +129,63 @@ void matmatthread(int lda, int ldb, int ldc,
                   dbA, dbB, dbC);
     }
   }
+}
+
+void matmatdist(MPI_Comm Gridcom,
+                int lda, int ldb, int ldc,
+                double *A, double *B, double *C,
+                int N1, int N2, int N3,
+                int dbA, int dbB, int dbC,
+                int NTROW, int NTCOL)
+{
+  MPI_Comm Rowcom, Colcom;
+  int ndims = 2, dims[2], periods[2], coords[2];
+  int NProws, NPcol;
+  int directions[2] = {0, 1};
+  int K2;
+  int i, k, c, r;
+  double *Acol, *Brow;
+
+  MPI_Cart_get(Gridcom, ndims, dims, periods, coords);
+
+  NProws = dims[0];
+  NPcol = dims[1];
+
+  K2 = lcm(NPcol, NProws);
+
+  Acol = (double *)malloc((N1 / NProws) * (N2 / K2) * sizeof(double));
+  Brow = (double *)malloc((N2 / K2) * (N3 / NPcol) * sizeof(double));
+  MPI_Cart_sub(Gridcom, directions, &Rowcom);
+  directions[0] = 1;
+  directions[1] = 0;
+  MPI_Cart_sub(Gridcom, directions, &Colcom);
+
+  for (k = 0; k < K2; ++k)
+  {
+    c = k % NPcol;
+    r = k % NProws;
+
+    if (coords[0] == r)
+      for (i = 0; i < N1 / NProws; i++)
+        memcpy(&Acol[i * N2 / K2], &A[i * lda], N2 / K2 * sizeof(double));
+
+    if (coords[1] == c)
+      for (i = 0; i < N2 / K2; i++)
+        memcpy(&Brow[i * N3 / NPcol], &B[i * ldb], N3 / NPcol * sizeof(double));
+
+    MPI_Bcast(Acol, (N1 / NProws) * (N2 / K2), MPI_DOUBLE, r, Colcom);
+    MPI_Bcast(Brow, (N2 / K2) * (N3 / NPcol), MPI_DOUBLE, c, Rowcom);
+    matmatthread(N2 / K2, N3 / NPcol, ldc,
+                 Acol,
+                 Brow,
+                 C,
+                 N1 / NProws, N2 / K2, N3 / NPcol,
+                 dbA, dbB, dbC,
+                 NTROW, NTCOL);
+  }
+
+  free(Acol);
+  free(Brow);
+  MPI_Comm_free(&Rowcom);
+  MPI_Comm_free(&Colcom);
 }
