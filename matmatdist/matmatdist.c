@@ -59,14 +59,16 @@ void matmatikj(int lda, int ldb, int ldc,
                int N1, int N2, int N3)
 {
   int i, j, k;
+  int aik;
   for (i = 0; i < N1; i++)
   {
     for (k = 0; k < N2; k++)
     {
+      aik = A[i * lda + k];
       for (j = 0; j < N3; j++)
       {
         // C[i * ldc + j] = C[i * ldc + j] + A[i * lda + k] * B[k * ldb + j];
-        C[i * ldc + j] += A[i * lda + k] * B[k * ldb + j];
+        C[i * ldc + j] += aik * B[k * ldb + j];
       }
     }
   }
@@ -141,6 +143,7 @@ void matmatdist(MPI_Comm Gridcom,
   MPI_Comm Rowcom, Colcom;
   int ndims = 2, dims[2], periods[2], coords[2];
   int NProws, NPcol;
+  int N1local, N2local, N3local;
   int directions[2] = {0, 1};
   int K2;
   int i, k, c, r;
@@ -151,10 +154,24 @@ void matmatdist(MPI_Comm Gridcom,
   NProws = dims[0];
   NPcol = dims[1];
 
-  K2 = lcm(NPcol, NProws);
+  {
+    int a = NPcol, b = NProws;
+    int temp;
+    while (b != 0)
+    {
+      temp = b;
+      b = a % b;
+      a = temp;
+    }
+    K2 = (a == 0 || b == 0) ? 0 : (NPcol / a) * NProws;
+  }
 
-  Acol = (double *)malloc((N1 / NProws) * (N2 / K2) * sizeof(double));
-  Brow = (double *)malloc((N2 / K2) * (N3 / NPcol) * sizeof(double));
+  N1local = N1 / NProws;
+  N2local = N2 / K2;
+  N3local = N3 / NPcol;
+
+  Acol = (double *)malloc(N1local * N2local * sizeof(double));
+  Brow = (double *)malloc(N2local * N3local * sizeof(double));
   MPI_Cart_sub(Gridcom, directions, &Rowcom);
   directions[0] = 1;
   directions[1] = 0;
@@ -166,20 +183,18 @@ void matmatdist(MPI_Comm Gridcom,
     r = k % NProws;
 
     if (coords[0] == r)
-      for (i = 0; i < N1 / NProws; i++)
-        memcpy(&Acol[i * N2 / K2], &A[i * lda], N2 / K2 * sizeof(double));
+      for (i = 0; i < N1local; i++)
+        memcpy(&Acol[i * N2local], &A[i * lda], N2local * sizeof(double));
 
     if (coords[1] == c)
-      for (i = 0; i < N2 / K2; i++)
-        memcpy(&Brow[i * N3 / NPcol], &B[i * ldb], N3 / NPcol * sizeof(double));
+      for (i = 0; i < N2local; i++)
+        memcpy(&Brow[i * N3local], &B[i * ldb], N3local * sizeof(double));
 
-    MPI_Bcast(Acol, (N1 / NProws) * (N2 / K2), MPI_DOUBLE, r, Colcom);
-    MPI_Bcast(Brow, (N2 / K2) * (N3 / NPcol), MPI_DOUBLE, c, Rowcom);
-    matmatthread(N2 / K2, N3 / NPcol, ldc,
-                 Acol,
-                 Brow,
-                 C,
-                 N1 / NProws, N2 / K2, N3 / NPcol,
+    MPI_Bcast(Acol, N1local * N2local, MPI_DOUBLE, r, Colcom);
+    MPI_Bcast(Brow, N2local * N3local, MPI_DOUBLE, c, Rowcom);
+    matmatthread(N2local, N3local, ldc,
+                 Acol, Brow, C,
+                 N1local, N2local, N3local,
                  dbA, dbB, dbC,
                  NTROW, NTCOL);
   }
