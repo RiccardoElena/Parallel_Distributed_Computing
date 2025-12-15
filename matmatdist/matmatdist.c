@@ -147,12 +147,14 @@ void matmatdist(MPI_Comm Gridcom,
                 int NTROW, int NTCOL)
 {
   MPI_Comm Rowcom, Colcom;
+  MPI_Datatype Atype, Btype;
   int dims[2], periods[2], coords[2];
   int remain[2];
   int NProw, NPcol, K;
   int N1loc, N2loc, N3loc;
-  int i, k, r, c;
-  double *Acol, *Brow;
+  int Acount, Bcount;
+  int i, r, c;
+  double *Abuf, *Bbuf, *Aptr, *Bptr;
 
   MPI_Cart_get(Gridcom, 2, dims, periods, coords);
   NProw = dims[0];
@@ -163,47 +165,46 @@ void matmatdist(MPI_Comm Gridcom,
   N2loc = N2 / K;
   N3loc = N3 / NPcol;
 
-  Acol = (double*) malloc(N1loc * N2loc * sizeof(double));
-  Brow = (double*) malloc(N2loc * N3loc * sizeof(double));
+  Acount = lda * N1loc;
+  Bcount = ldb * N2loc;
+
+  Abuf = (double *)malloc(Acount * sizeof(double));
+  Bbuf = (double *)malloc(Bcount * sizeof(double));
 
   remain[0] = 0;
   remain[1] = 1;
-
   MPI_Cart_sub(Gridcom, remain, &Rowcom);
 
   remain[0] = 1;
   remain[1] = 0;
-
   MPI_Cart_sub(Gridcom, remain, &Colcom);
 
-  for (k = 0; k < K; ++k) {
-    r = k % NProw;
-    c = k % NPcol;
+  MPI_Type_vector(N1loc, N2loc, lda, MPI_DOUBLE, &Atype);
+  MPI_Type_vector(N2loc, N3loc, ldb, MPI_DOUBLE, &Btype);
+  MPI_Type_commit(&Atype);
+  MPI_Type_commit(&Btype);
 
-    if (coords[0] == r) {
-      for (i = 0; i < N1loc; ++i) {
-        memcpy(Acol + i * N2loc, A + i * lda, N2loc * sizeof(double));
-      }
-    }
+  for (i = 0; i < K; ++i) {
+    c = i % NPcol;
+    r = i % NProw;
 
-    if (coords[1] == c) {
-      for (i = 0; i < N2loc; ++i) {
-        memcpy(Brow + i * N3loc, B + i * ldb, N3loc * sizeof(double));
-      }
-    }
+    Aptr = (coords[1] == c) ? A + (i / NPcol) * Acount : Abuf;
+    Bptr = (coords[0] == r) ? B + (i / NProw) * Bcount : Bbuf;
 
-    MPI_Bcast(Acol, N1loc * N2loc, MPI_DOUBLE, r, Colcom);
-    MPI_Bcast(Brow, N2loc * N3loc, MPI_DOUBLE, c, Rowcom);
+    MPI_Bcast(Aptr, 1, Atype, c, Rowcom);
+    MPI_Bcast(Bptr, 1, Btype, r, Colcom);
 
-    matmatthread(N2loc, N3loc, ldc,
-                 Acol, Brow, C,
+    matmatthread(lda, ldb, ldc,
+                 Aptr, Bptr, C,
                  N1loc, N2loc, N3loc,
                  dbA, dbB, dbC,
                  NTROW, NTCOL);
   }
 
-  free(Acol);
-  free(Brow);
+  free(Abuf);
+  free(Bbuf);
+  MPI_Type_free(&Atype);
+  MPI_Type_free(&Btype);
   MPI_Comm_free(&Rowcom);
   MPI_Comm_free(&Colcom);
 }
