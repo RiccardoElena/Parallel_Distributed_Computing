@@ -51,7 +51,7 @@ static int gcd(int a, int b)
 
 static int lcm(int a, int b)
 {
-  return (a && b) ? 0 : (a / gcd(a, b)) * b;
+  return (a && b) ? (a / gcd(a, b)) * b : 0;
 }
 
 void matmatikj(int lda, int ldb, int ldc,
