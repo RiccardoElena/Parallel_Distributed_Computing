@@ -60,19 +60,16 @@ void matmatikj(int lda, int ldb, int ldc,
 {
   int i, j, k;
   double aik;
-  const double* restrict rA = A;
-  const double* restrict rB = B;
-  double* restrict rC = C;
   const double* Arow;
   const double* Brow;
   double* Crow;
 
   for (i = 0; i < N1; ++i) {
-    Arow = rA + i * lda;
-    Crow = rC + i * ldc;
+    Arow = A + i * lda;
+    Crow = C + i * ldc;
     for (k = 0; k < N2; ++k) {
       aik = Arow[k];
-      Brow = rB + k * ldb;
+      Brow = B + k * ldb;
       for (j = 0; j < N3; ++j) {
         Crow[j] += aik * Brow[j];
       }
