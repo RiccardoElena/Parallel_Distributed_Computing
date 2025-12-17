@@ -163,8 +163,8 @@ void matmatdist(MPI_Comm Gridcom,
   N2loc = N2 / K;
   N3loc = N3 / NPcol;
 
-  Acount = lda * N1loc;
-  Bcount = ldb * N2loc;
+  Acount = lda * (N1loc - 1) + N2loc;
+  Bcount = ldb * (N2loc - 1) + N3loc;
 
   Abuf = (double *)malloc(Acount * sizeof(double));
   Bbuf = (double *)malloc(Bcount * sizeof(double));
