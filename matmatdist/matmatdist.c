@@ -1,8 +1,6 @@
 /* Autori: Pasquale Miranda, Riccardo Elena */
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <omp.h>
 #include <mpi.h>
 
