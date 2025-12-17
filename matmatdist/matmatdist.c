@@ -186,7 +186,7 @@ void matmatdist(MPI_Comm Gridcom,
     c = i % NPcol;
     r = i % NProw;
 
-    Aptr = (coords[1] == c) ? A + (i / NPcol) * Acount : Abuf;
+    Aptr = (coords[1] == c) ? A + (i / NPcol) * N2loc : Abuf;
     Bptr = (coords[0] == r) ? B + (i / NProw) * Bcount : Bbuf;
 
     MPI_Bcast(Aptr, 1, Atype, c, Rowcom);
